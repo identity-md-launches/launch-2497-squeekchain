@@ -5,12 +5,21 @@ pragma solidity 0.8.26;
 /// forge dispatches on (they match forge-std's `Vm.sol`); the cheatcodes live in forge itself, so
 /// no library has to be vendored for the tests to run.
 interface Vm {
+    struct Log {
+        bytes32[] topics;
+        bytes data;
+        address emitter;
+    }
+
     function prank(address msgSender) external;
     function startPrank(address msgSender) external;
     function stopPrank() external;
     function expectRevert() external;
     function expectRevert(bytes calldata revertData) external;
     function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData) external;
+    function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData, address emitter) external;
+    function recordLogs() external;
+    function getRecordedLogs() external returns (Log[] memory logs);
     function assume(bool condition) external pure;
     function label(address account, string calldata newLabel) external;
     function assertTrue(bool condition, string calldata err) external pure;
@@ -28,6 +37,14 @@ interface Vm {
 abstract contract Test {
     address internal constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
     Vm internal constant vm = Vm(VM_ADDRESS);
+
+    /// @dev Maps arbitrary fuzz inputs into an inclusive range without discarding cases.
+    /// Preserves inputs already in range, including both endpoints and the full uint256 domain.
+    function bound(uint256 value, uint256 minimum, uint256 maximum) internal pure returns (uint256) {
+        require(minimum <= maximum, "invalid bounds");
+        if (value >= minimum && value <= maximum) return value;
+        return minimum + value % (maximum - minimum + 1);
+    }
 
     function assertTrue(bool condition, string memory err) internal pure {
         vm.assertTrue(condition, err);
